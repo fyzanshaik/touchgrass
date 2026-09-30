@@ -23,10 +23,10 @@ Copy and paste this into your coding agent from any workspace:
 Clone https://github.com/fyzanshaik/touchgrass into a new folder, or reuse an existing clone. Read AGENTS.md, README.md, and skills/touchgrass-setup/SKILL.md, then explore the project, explain how it works, and guide me through setup for myself or my family. Reuse any existing deployment.
 ```
 
-The repository is currently private, so the agent needs GitHub access to clone it. It will
-use the project's guides and your own Cloudflare account. No special model or MCP connection
-is required; it can guide you through manual login or device-installation steps. Never paste
-API tokens or login cookies into chat.
+The agent will clone the public repository, read the project's guides, and help you use your
+own Cloudflare account. No special model or MCP connection is required; it can guide you
+through manual login or device-installation steps. Never paste API tokens or login cookies
+into chat.
 
 [Get started](docs/setup.md) · [Architecture](#architecture) · [Blocking flow](#how-a-website-gets-blocked) · [Operations and recovery](docs/operations.md) · [MIT license](LICENSE)
 
@@ -62,9 +62,8 @@ Separate member policies, multiple administrators, and child-device lockdown are
 Useful blocking should not stop at a premium upgrade prompt. Touchgrass gives you category
 filtering, custom rules, and policy management in one MIT-licensed project you can run yourself.
 
-You control the configuration and Cloudflare account. The source is available to repository
-readers, and the license allows them to reuse and modify it. While this repository is private,
-cloning it requires GitHub access.
+You control the configuration and Cloudflare account. Touchgrass is open source under the
+MIT license: anyone can clone it, run their own instance, and reuse or modify the code.
 
 ## Get started
 
@@ -73,10 +72,8 @@ App Store installation, or paid Apple Developer membership is needed.
 
 ### Try the dashboard locally
 
-Replace `YOUR_REPOSITORY_URL` with the clone URL of a repository you can access:
-
 ```sh
-git clone YOUR_REPOSITORY_URL touchgrass
+git clone https://github.com/fyzanshaik/touchgrass.git
 cd touchgrass
 npm install --global pnpm@11.9.0
 pnpm install --frozen-lockfile

@@ -17,15 +17,16 @@ before a blocked website can load.
 
 ## Start with your AI assistant
 
-Open this repository in your agent, then copy and paste:
+Copy and paste this into your coding agent from any workspace:
 
 ```text
-Read skills/touchgrass-setup/SKILL.md, understand this project, and help me set up Touchgrass for myself or my family. Reuse my existing deployment if I already have one.
+Clone https://github.com/fyzanshaik/touchgrass into a new folder, or reuse an existing clone. Read AGENTS.md, README.md, and skills/touchgrass-setup/SKILL.md, then explore the project, explain how it works, and guide me through setup for myself or my family. Reuse any existing deployment.
 ```
 
-The agent will use the project's guides and your own Cloudflare account. No special model or
-MCP connection is required; it can guide you through any manual login or device-installation
-steps. Never paste API tokens or login cookies into chat.
+The repository is currently private, so the agent needs GitHub access to clone it. It will
+use the project's guides and your own Cloudflare account. No special model or MCP connection
+is required; it can guide you through manual login or device-installation steps. Never paste
+API tokens or login cookies into chat.
 
 [Get started](docs/setup.md) · [Architecture](#architecture) · [Blocking flow](#how-a-website-gets-blocked) · [Operations and recovery](docs/operations.md) · [MIT license](LICENSE)
 

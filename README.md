@@ -13,7 +13,7 @@ before a blocked website can load.
 
 **No app fees. No premium feature tiers. No per-device paywall.**
 
-[Get started](docs/setup.md) · [Architecture](#architecture-how-blocking-works) · [Operations and recovery](docs/operations.md) · [MIT license](LICENSE)
+[Get started](docs/setup.md) · [System design](#system-design) · [Blocking flow](#how-a-website-gets-blocked) · [Operations and recovery](docs/operations.md) · [MIT license](LICENSE)
 
 ## For you and your family
 
@@ -85,56 +85,90 @@ Follow the [complete setup guide](docs/setup.md). It walks you through:
 The tracked configuration is a blank template. Your account values belong in an ignored
 production configuration, and credentials stay in Worker secrets.
 
-## Architecture: how blocking works
+## System design
 
-Touchgrass has two jobs: managing your policy and routing device DNS to the service that
-enforces it.
+The dashboard manages the policy. Gateway enforces it. The SQLite-backed Durable Object
+stores policy, pending cooldown changes, desired/applied revisions, and owned Gateway rule IDs.
 
 ```mermaid
-flowchart TB
-    subgraph Family["Your devices or family devices"]
-        Browsers["Safari · Chrome · Helium"]
-        Profile["Installed Apple DNS profile"]
-        Browsers --> Profile
-    end
-
-    subgraph Filtering["DNS filtering path"]
-        Gateway["Cloudflare Gateway"]
-        Rules["Adult category + custom domain rules"]
-        Decision{"Domain allowed?"}
-        Allowed["Return DNS answer"]
-        Blocked["Block DNS resolution"]
-        Gateway --> Rules --> Decision
-        Decision -->|Yes| Allowed
-        Decision -->|No| Blocked
-    end
-
-    subgraph Management["Private policy management"]
+flowchart LR
+    subgraph Management["Your private Touchgrass deployment"]
         Admin["You or the family administrator"]
-        Access["Cloudflare Access login"]
-        Dashboard["Touchgrass dashboard"]
-        API["Cloudflare Worker · Hono API"]
-        State["Durable Object · SQLite<br/>Policy, cooldowns, sync state"]
+        Access["Cloudflare Access<br/>Administrator-only login"]
+        Dashboard["React dashboard"]
+        API["Cloudflare Worker<br/>Hono API + JWT validation"]
+        State["SQLite Durable Object<br/>Policy · cooldowns · sync state"]
+        Reconcile["Reconciler<br/>Compile and sync owned rules"]
         Admin --> Access --> Dashboard --> API --> State
+        State --> Reconcile
     end
 
-    Profile -->|Encrypted DNS over HTTPS| Gateway
-    State -->|Reconcile policy using Gateway API| Rules
+    subgraph Enforcement["Cloudflare Gateway"]
+        Policies["DNS policies<br/>Adult category + custom rules"]
+        Resolver["Location-specific encrypted DNS endpoint"]
+        Resolver --> Policies
+    end
+
+    Devices["Your devices or family devices<br/>Installed DNS profile"]
+    Reconcile -->|Gateway management API| Policies
+    Devices -->|DNS over HTTPS| Resolver
 
     classDef grass fill:#dcfce7,stroke:#15803d,color:#14532d
-    classDef blocked fill:#fee2e2,stroke:#b91c1c,color:#7f1d1d
-    class Profile,Gateway,Rules,Allowed,Dashboard,State grass
-    class Blocked blocked
+    class Dashboard,State,Policies,Resolver,Devices grass
 ```
 
 DNS requests go directly to Gateway. The Touchgrass Worker serves the dashboard and manages
 rules; it does not proxy your web traffic. Cloudflare supports location-based DNS filtering
-without installing its device client. [Cloudflare's DoH documentation](https://developers.cloudflare.com/cloudflare-one/networks/resolvers-and-proxies/dns/dns-over-https/).
+without installing its device client. See [Cloudflare's DoH documentation](https://developers.cloudflare.com/cloudflare-one/networks/resolvers-and-proxies/dns/dns-over-https/).
 
 One deployment has one administrator, one shared policy, and one Gateway location. Use a
 separate Cloudflare account for each independent deployment: the current Gateway ownership
 namespace is account-wide, so separate Touchgrass instances cannot safely share an account.
 Multiple devices using the same deployment are supported by the shared-profile design.
+
+## How a website gets blocked
+
+When a browser needs an IP address for a website, its DNS request must reach your Gateway
+endpoint for filtering to apply. Gateway evaluates the requested **hostname**, not the page's
+URL path or content. This diagram shows a fresh DNS lookup through the installed profile:
+
+```mermaid
+sequenceDiagram
+    actor Person as You or a family member
+    participant Browser as Browser on a configured device
+    participant DNS as Device DNS / installed profile
+    participant Gateway as Cloudflare Gateway
+    participant Site as Website server
+
+    Person->>Browser: Open https://some-site.example/page
+    Browser->>DNS: Look up some-site.example
+    DNS->>Gateway: Encrypted DNS query to your location endpoint
+    Gateway->>Gateway: Evaluate ordered category and custom domain rules
+    alt Effective rule blocks the hostname
+        Gateway-->>DNS: Block response instead of the site's IP address
+        DNS-->>Browser: Blocked DNS result
+        Browser-->>Person: Website cannot load through this lookup
+    else Effective policy allows the hostname
+        Gateway-->>DNS: Resolved IP address
+        DNS-->>Browser: Website IP address
+        Browser->>Site: Normal HTTPS connection
+        Site-->>Browser: Website response
+        Browser-->>Person: Page loads
+    end
+```
+
+The same principle applies to websites across browsers **when they use the configured DNS
+path**. Cached DNS answers, existing connections, browser-specific secure DNS, VPNs, Private
+Relay, or direct IP access can bypass a fresh filtered lookup. Touchgrass does not inspect or
+intercept HTTPS page content. A page can also request resources from several other domains,
+each of which has its own DNS decision. See Cloudflare’s
+[DNS enforcement boundaries](https://developers.cloudflare.com/learning-paths/secure-internet-traffic/understand-policies/order-of-enforcement/).
+
+The supplied profile and setup guide target **Mac and iPhone**. Gateway can filter other
+DNS-capable devices if configured to use the same endpoint, but Touchgrass does not currently
+provide installers or verified setup guides for every platform. Browser/device coverage and
+adult-category coverage are separate: an unclassified adult domain may still need a custom
+block even on a correctly configured device.
 
 ## Devices and browsers
 
@@ -193,6 +227,34 @@ If policy synchronization fails, use Diagnostics to inspect the error and owned 
 The [operations guide](docs/operations.md) covers both, along with token rotation, precedence
 conflicts, privacy, and upgrades.
 
+## Copy a prompt into your AI assistant
+
+Open this repository in your assistant first, then copy one of these prompts. The
+[portable skills](skills/README.md) tell the assistant which guides to read and how to use
+your own account. No special provider or MCP connection is required; manual steps still work.
+
+**Set it up for yourself or your family:**
+
+```text
+Use skills/touchgrass-setup/SKILL.md to help me set up Touchgrass for my family's Macs and iPhones.
+```
+
+**Understand the project:**
+
+```text
+Use skills/touchgrass-understand/SKILL.md to explain Touchgrass's architecture and how blocking works.
+```
+
+**Fix an existing installation:**
+
+```text
+Use skills/touchgrass-recover/SKILL.md to diagnose and restore my existing Touchgrass blocking.
+```
+
+See [skill registration and usage](skills/README.md) to install them in a skills-capable
+assistant. Deployment requires your Cloudflare account, and device installation may require
+you to complete interactive steps. Never paste API tokens or login cookies into chat.
+
 ## Development
 
 Built with **TypeScript, Effect, Hono, React, Vite, Cloudflare Workers, and a SQLite-backed
@@ -219,6 +281,7 @@ For dashboard development, run `pnpm run dev:web` alongside `pnpm run dev:local`
 | `src/dns-profile/` | Apple DNS profile generation |
 | `tests/` | Domain, profile, dashboard, and Worker runtime tests |
 | `docs/` | Setup and operations guides |
+| `skills/` | Portable setup, architecture, and recovery skills for AI assistants |
 
 Contributions must preserve strict types, decode external input from `unknown`, and add no
 source comments, `any`, unchecked assertions, or suppression directives. See [AGENTS.md](AGENTS.md)

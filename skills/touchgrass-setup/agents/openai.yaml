@@ -1,0 +1,4 @@
+interface:
+  display_name: "Touchgrass Setup"
+  short_description: "Deploy and verify Touchgrass for you or your family"
+  default_prompt: "Use $touchgrass-setup to help me set up Touchgrass for my family's devices."

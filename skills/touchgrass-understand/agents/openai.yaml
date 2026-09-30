@@ -1,0 +1,4 @@
+interface:
+  display_name: "Touchgrass Understand"
+  short_description: "Explain Touchgrass architecture and filtering behavior"
+  default_prompt: "Use $touchgrass-understand to explain Touchgrass architecture and how DNS blocking works."

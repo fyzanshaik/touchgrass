@@ -1,0 +1,4 @@
+interface:
+  display_name: "Touchgrass Recover"
+  short_description: "Restore existing Touchgrass DNS filtering safely"
+  default_prompt: "Use $touchgrass-recover to diagnose and restore my existing Touchgrass filtering."

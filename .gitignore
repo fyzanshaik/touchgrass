@@ -20,4 +20,8 @@ touchgrass-diagnostics*.json
 
 ClearBrowse-Markdown/
 graphify-out/
-skills/
+/skills/*
+!/skills/README.md
+!/skills/touchgrass-setup/
+!/skills/touchgrass-understand/
+!/skills/touchgrass-recover/

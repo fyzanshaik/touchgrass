@@ -6,6 +6,8 @@
 
 **Free, self-hosted adult-site blocking for safer family browsing.**
 
+## About
+
 For individuals and families: block adult websites, add your own rules, and manage a shared
 blocking policy from one private dashboard.
 Touchgrass runs on your Cloudflare account and uses Cloudflare Gateway to filter DNS requests
@@ -13,7 +15,19 @@ before a blocked website can load.
 
 **No app fees. No premium feature tiers. No per-device paywall.**
 
-[Get started](docs/setup.md) · [System design](#system-design) · [Blocking flow](#how-a-website-gets-blocked) · [Operations and recovery](docs/operations.md) · [MIT license](LICENSE)
+## Start with your AI assistant
+
+Open this repository in your agent, then copy and paste:
+
+```text
+Read skills/touchgrass-setup/SKILL.md, understand this project, and help me set up Touchgrass for myself or my family. Reuse my existing deployment if I already have one.
+```
+
+The agent will use the project's guides and your own Cloudflare account. No special model or
+MCP connection is required; it can guide you through any manual login or device-installation
+steps. Never paste API tokens or login cookies into chat.
+
+[Get started](docs/setup.md) · [Architecture](#architecture) · [Blocking flow](#how-a-website-gets-blocked) · [Operations and recovery](docs/operations.md) · [MIT license](LICENSE)
 
 ## For you and your family
 
@@ -85,46 +99,82 @@ Follow the [complete setup guide](docs/setup.md). It walks you through:
 The tracked configuration is a blank template. Your account values belong in an ignored
 production configuration, and credentials stay in Worker secrets.
 
-## System design
+## Architecture
 
-The dashboard manages the policy. Gateway enforces it. The SQLite-backed Durable Object
-stores policy, pending cooldown changes, desired/applied revisions, and owned Gateway rule IDs.
+Touchgrass has two connected paths: **policy management**, where you decide what to block,
+and **DNS filtering**, where Cloudflare Gateway applies that policy to your devices.
+Both run in your Cloudflare account; devices use an installed DNS profile to reach Gateway.
+
+### Component overview
 
 ```mermaid
-flowchart LR
-    subgraph Management["Your private Touchgrass deployment"]
+flowchart TB
+    subgraph Management["Policy management"]
+        direction TB
         Admin["You or the family administrator"]
         Access["Cloudflare Access<br/>Administrator-only login"]
-        Dashboard["React dashboard"]
-        API["Cloudflare Worker<br/>Hono API + JWT validation"]
-        State["SQLite Durable Object<br/>Policy · cooldowns · sync state"]
-        Reconcile["Reconciler<br/>Compile and sync owned rules"]
-        Admin --> Access --> Dashboard --> API --> State
-        State --> Reconcile
+        Worker["Touchgrass Worker<br/>React dashboard + Hono API<br/>Access JWT validation"]
+        Account["Durable Object<br/>Policy changes + cooldowns<br/>Gateway reconciliation"]
+        Storage[("SQLite storage<br/>Policy · proposals · revisions<br/>Owned Gateway rule IDs")]
+
+        Admin --> Access --> Worker
+        Worker --> Account
+        Account <-->|Read and persist state| Storage
     end
 
-    subgraph Enforcement["Cloudflare Gateway"]
-        Policies["DNS policies<br/>Adult category + custom rules"]
-        Resolver["Location-specific encrypted DNS endpoint"]
-        Resolver --> Policies
+    subgraph Filtering["DNS filtering"]
+        direction TB
+        Devices["Your Macs and iPhones<br/>Any browser using device DNS"]
+        Profile["Installed Apple DNS profile"]
+        Gateway["Cloudflare Gateway<br/>Location-specific DNS endpoint<br/>Adult category + custom rules"]
+
+        Devices --> Profile
+        Profile -->|DNS over HTTPS| Gateway
     end
 
-    Devices["Your devices or family devices<br/>Installed DNS profile"]
-    Reconcile -->|Gateway management API| Policies
-    Devices -->|DNS over HTTPS| Resolver
+    Account -->|Synchronize owned DNS rules<br/>Gateway management API| Gateway
 
-    classDef grass fill:#dcfce7,stroke:#15803d,color:#14532d
-    class Dashboard,State,Policies,Resolver,Devices grass
+    classDef management fill:#eff6ff,stroke:#2563eb,color:#1e3a8a
+    classDef filtering fill:#dcfce7,stroke:#15803d,color:#14532d
+    class Access,Worker,Account,Storage management
+    class Devices,Profile,Gateway filtering
 ```
 
-DNS requests go directly to Gateway. The Touchgrass Worker serves the dashboard and manages
-rules; it does not proxy your web traffic. Cloudflare supports location-based DNS filtering
-without installing its device client. See [Cloudflare's DoH documentation](https://developers.cloudflare.com/cloudflare-one/networks/resolvers-and-proxies/dns/dns-over-https/).
+| Component | Responsibility |
+| --- | --- |
+| Cloudflare Access | Restrict dashboard access to the configured administrator. |
+| Worker | Serve the React dashboard, validate Access JWTs, and handle policy requests through the Hono API. |
+| Durable Object + SQLite | Store the desired policy, pending cooldown proposals, revisions, and owned rule IDs; reconcile policy changes into Gateway. |
+| Cloudflare Gateway | Resolve device DNS requests and enforce the synchronized adult-category and custom-domain rules. |
+| Apple DNS profile | Configure eligible DNS lookups on each Mac or iPhone to use the deployment's Gateway endpoint. |
 
-One deployment has one administrator, one shared policy, and one Gateway location. Use a
-separate Cloudflare account for each independent deployment: the current Gateway ownership
-namespace is account-wide, so separate Touchgrass instances cannot safely share an account.
-Multiple devices using the same deployment are supported by the shared-profile design.
+### From a saved rule to active protection
+
+1. **Save the change.** The authenticated API sends it to the Durable Object. Stronger
+   changes update the desired policy; weaker changes become proposals requiring confirmation
+   after the cooldown.
+2. **Synchronize Gateway.** The reconciler compiles the policy, updates only its owned
+   Gateway rules, and confirms the applied revision after successful read-back. Diagnostics
+   exposes synchronization errors and pending work.
+3. **Filter device DNS.** Gateway evaluates queries from devices using the profile. The
+   dashboard is not contacted for each lookup, and synchronization alone does not prove that
+   a device is using the filtered resolver.
+
+The Worker manages policy; **DNS requests go directly to Gateway**. Allowed website traffic
+continues over normal HTTPS between the browser and website server. Touchgrass does not proxy
+or inspect page content. The [blocking walkthrough below](#how-a-website-gets-blocked) shows
+that request path in detail.
+
+### Deployment boundaries
+
+One deployment has **one administrator, one shared policy, and one Gateway location**.
+An individual or family can use that same deployment across multiple supported devices.
+Cloudflare supports location-based encrypted DNS filtering without its device client; see
+[the DoH documentation](https://developers.cloudflare.com/cloudflare-one/networks/resolvers-and-proxies/dns/dns-over-https/).
+
+Use a separate Cloudflare account for each independent deployment. The current Gateway rule
+ownership namespace is account-wide, so separate Touchgrass instances cannot safely share
+an account. Adding another family device reuses the existing deployment and profile endpoint.
 
 ## How a website gets blocked
 
@@ -227,34 +277,6 @@ If policy synchronization fails, use Diagnostics to inspect the error and owned 
 The [operations guide](docs/operations.md) covers both, along with token rotation, precedence
 conflicts, privacy, and upgrades.
 
-## Copy a prompt into your AI assistant
-
-Open this repository in your assistant first, then copy one of these prompts. The
-[portable skills](skills/README.md) tell the assistant which guides to read and how to use
-your own account. No special provider or MCP connection is required; manual steps still work.
-
-**Set it up for yourself or your family:**
-
-```text
-Use skills/touchgrass-setup/SKILL.md to help me set up Touchgrass for my family's Macs and iPhones.
-```
-
-**Understand the project:**
-
-```text
-Use skills/touchgrass-understand/SKILL.md to explain Touchgrass's architecture and how blocking works.
-```
-
-**Fix an existing installation:**
-
-```text
-Use skills/touchgrass-recover/SKILL.md to diagnose and restore my existing Touchgrass blocking.
-```
-
-See [skill registration and usage](skills/README.md) to install them in a skills-capable
-assistant. Deployment requires your Cloudflare account, and device installation may require
-you to complete interactive steps. Never paste API tokens or login cookies into chat.
-
 ## Development
 
 Built with **TypeScript, Effect, Hono, React, Vite, Cloudflare Workers, and a SQLite-backed
@@ -281,7 +303,7 @@ For dashboard development, run `pnpm run dev:web` alongside `pnpm run dev:local`
 | `src/dns-profile/` | Apple DNS profile generation |
 | `tests/` | Domain, profile, dashboard, and Worker runtime tests |
 | `docs/` | Setup and operations guides |
-| `skills/` | Portable setup, architecture, and recovery skills for AI assistants |
+| `skills/` | [Portable setup, architecture, and recovery skills](skills/README.md) for AI assistants |
 
 Contributions must preserve strict types, decode external input from `unknown`, and add no
 source comments, `any`, unchecked assertions, or suppression directives. See [AGENTS.md](AGENTS.md)

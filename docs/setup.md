@@ -7,9 +7,10 @@ Use **one Cloudflare account per independent deployment**. The reconciler's owne
 namespace is account-wide: it lists every Gateway rule in the account to learn which
 precedences are taken, and it treats any rule carrying its ownership prefix that it did not
 create as `drift`. Two copies sharing one account would each see the other's rules as drift
-and degrade. Give each person their own Cloudflare account, Worker, Gateway location and
-Access application. (The prefix itself is a compatibility boundary and is not changed by
-this guide.)
+and degrade. A deployment has one administrator and one shared policy; multiple devices
+can use that policy, including devices in one household. For independent policies, use
+separate Cloudflare accounts, Workers, Gateway locations and Access applications. The
+ownership prefix is a compatibility boundary and is not changed by this guide.
 
 There is no native app, no WARP client and no paid Apple Developer membership involved.
 

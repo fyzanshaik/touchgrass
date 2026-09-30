@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="320" height="320" viewBox="0 0 320 320" role="img" aria-labelledby="title description">
+  <title id="title">Sprout, the Touchgrass mascot</title>
+  <desc id="description">A friendly grass sprout growing from a green shield, with bright eyes and a warm smile.</desc>
+  <defs>
+    <linearGradient id="shield" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#bbf7d0"/>
+      <stop offset="1" stop-color="#4ade80"/>
+    </linearGradient>
+  </defs>
+  <circle cx="160" cy="158" r="136" fill="#f0fdf4"/>
+  <ellipse cx="160" cy="286" rx="65" ry="10" fill="#14532d" opacity="0.10"/>
+  <path d="M160 108 C190 130 220 132 240 132 L236 194 C232 234 200 267 160 281 C120 267 88 234 84 194 L80 132 C100 132 130 130 160 108Z" fill="url(#shield)" stroke="#166534" stroke-width="7" stroke-linejoin="round"/>
+  <path d="M160 154 C151 110 116 100 105 59 C139 64 158 83 165 115 C177 76 199 56 226 47 C224 92 194 117 173 154Z" fill="#22c55e" stroke="#166534" stroke-width="7" stroke-linejoin="round"/>
+  <path d="M163 151 C162 119 155 93 148 81 M169 140 C181 109 195 85 210 68" fill="none" stroke="#166534" stroke-width="5" stroke-linecap="round"/>
+  <ellipse cx="130" cy="191" rx="8" ry="11" fill="#14532d"/>
+  <ellipse cx="190" cy="191" rx="8" ry="11" fill="#14532d"/>
+  <circle cx="132" cy="187" r="2.5" fill="#fff"/>
+  <circle cx="192" cy="187" r="2.5" fill="#fff"/>
+  <ellipse cx="112" cy="211" rx="12" ry="6" fill="#fb7185" opacity="0.55"/>
+  <ellipse cx="208" cy="211" rx="12" ry="6" fill="#fb7185" opacity="0.55"/>
+  <path d="M141 217 Q160 237 179 217" fill="none" stroke="#14532d" stroke-width="6" stroke-linecap="round"/>
+  <path d="M59 103 L59 119 M51 111 L67 111 M260 211 L260 225 M253 218 L267 218" fill="none" stroke="#4ade80" stroke-width="5" stroke-linecap="round"/>
+</svg>

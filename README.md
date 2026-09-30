@@ -1,252 +1,229 @@
 # Touchgrass
 
-Touchgrass is personal adult-website filtering for one person's iPhone and Mac, using
-that person's own Cloudflare account. Enforcement is a manually installed encrypted DNS
-profile (DNS over HTTPS) that points at a Cloudflare Gateway DNS location. The application
-in this repository is the private dashboard and the account service that compile and
-reconcile your filtering policy into Gateway rules.
+<p align="center">
+  <img src="docs/assets/touchgrass-mascot.svg" width="220" alt="Sprout, the Touchgrass mascot: a smiling grass sprout on a protective green shield." />
+</p>
 
-No native app is involved and no paid Apple Developer membership is required.
+**Free, self-hosted adult-site blocking for safer family browsing.**
 
-This repository is generic: it ships blank owner, account, Access and DNS settings so a
-new owner can deploy their own isolated copy. It is **single-owner per deployment**, not a
-multi-tenant service.
+For individuals and families: block adult websites, add your own rules, and manage a shared
+blocking policy from one private dashboard.
+Touchgrass runs on your Cloudflare account and uses Cloudflare Gateway to filter DNS requests
+before a blocked website can load.
 
-## What it does
+**No app fees. No premium feature tiers. No per-device paywall.**
 
-- Stores a small policy: a protection on/off switch, the pornography category, and custom
-  block/allow rules scoped to a hostname or a domain and its subdomains.
-- Compiles that policy into Cloudflare Gateway DNS rules scoped to your Gateway location,
-  and reconciles them (create, update, delete, re-precedence) against what the account
-  actually reports.
-- Applies a cooldown to weakening changes so you cannot trivially switch protection off or
-  unblock something on impulse.
-- Backs up and restores the policy as JSON.
-- Serves a private dashboard behind Cloudflare Access, restricted to a single owner
-  identity.
-- Runs a simulated Gateway whose state lives in the Durable Object, so you can exercise the
-  whole lifecycle without touching any Cloudflare account.
+[Get started](docs/setup.md) · [Architecture](#architecture-how-blocking-works) · [Operations and recovery](docs/operations.md) · [MIT license](LICENSE)
 
-## Single-owner model
+## For you and your family
 
-One deployment serves exactly one owner, in one Cloudflare account:
+Set up Touchgrass once, then install its DNS profile on the iPhones and Macs you want to
+filter. They use the same adult-site category and custom rules, managed by one administrator.
 
-- Exactly one Worker, one SQLite-backed Durable Object instance (the `owner` object), and one
-  authorised identity (`OWNER_EMAIL`).
-- Requests authenticated as any other identity are rejected with `403`. There is no signup,
-  no user list and no sharing.
-- The service manages only the Gateway rules it created, identified by an internal ownership
-  name prefix. It observes other rules' precedence to position its own, but never mutates
-  anything it did not create.
+Touchgrass has **no app-imposed device limit**. There is no device registration, paid device
+slot, or subscription required to unlock another installation. Cloudflare's service quotas
+still apply; this is not a promise of unlimited infrastructure or traffic.
 
-That ownership prefix is account-wide, so **run each independent deployment in its own
-Cloudflare account**. Two copies in one account would each treat the other's rules as drift.
-For more than one person, repeat the setup with a separate account, Worker and Gateway
-location per person.
+Set it up for yourself or your family: one adult manages the dashboard, and each family
+member installs the DNS profile on their supported devices. Everyone gets the same adult-site
+filter and custom blocklist, at home or on the go whenever their device uses that DNS profile.
+Separate member policies, multiple administrators, and child-device lockdown are not included.
 
-## Architecture
+## What you get
 
-```text
- iPhone / Mac
-   │  system DNS (encrypted, DoH)
-   ▼
- https://<location>.cloudflare-gateway.com/dns-query
-   │
-   ▼
- Cloudflare Gateway  ── DNS location ──►  DNS policies
-   ▲                                        ▲
-   │  management API (scoped token)         │  reconcile
-   │                                        │
- Cloudflare Worker (Hono)  ──────────►  SQLite Durable Object
-   │  serves dashboard + /api/v1            (policy revisions, cooldowns,
-   │                                         owned rule map, checkpoints)
-   ▲
-   │  owner-only Cloudflare Access (JWT)
- Browser dashboard (React + Vite)
-```
-
-The Worker is the only writer of its own rules. The Durable Object is the single source of
-truth for the desired policy, what has been applied, and outstanding cooldowns.
-
-## Stack and prerequisites
-
-| Layer | Choice |
+| Feature | What it does |
 | --- | --- |
-| Language | TypeScript, strict, no `any`, no assertions, comments enforced off in source |
-| Runtime | Cloudflare Workers (`wrangler`, `workerd`) |
-| HTTP | Hono |
-| Contracts and errors | Effect Schema, typed Effect errors |
-| State | One SQLite-backed Durable Object (`AccountDurableObject`) |
-| Dashboard | React 19 + Vite, built to `dist/web`, served as Worker assets |
-| Auth | Cloudflare Access JWT (RS256) verified in the Worker, same-origin CSRF checks |
+| Adult-site blocking | Uses Cloudflare Gateway's pornography category to block classified domains. |
+| Your own blocklist | Add a hostname or block a whole domain and its subdomains. |
+| Allow rules | Add exceptions where they do not conflict with stronger blocks. |
+| One private dashboard | Manage the shared policy behind an administrator-only Cloudflare Access login. |
+| Cooldowns | Delay changes that weaken protection; strengthening changes take effect immediately after synchronization. |
+| Backup and restore | Export your policy as JSON and restore it with the same cooldown rules. |
+| Sync diagnostics | See whether Gateway has applied your latest policy, and investigate failed updates. |
+| A free local preview | Try the dashboard with a simulated Gateway before configuring Cloudflare. |
 
-- Node.js `>=22.18.0` (the `engines` field and `packageManager` pin the toolchain).
-- pnpm `11.9.0`.
-- Cloudflare account with Workers (the Free plan is enough) and Zero Trust enabled.
-- Wrangler `4.x` (installed as a dev dependency; run it through `pnpm exec`).
+## Why Touchgrass?
 
-## Local quickstart (safe, no traffic filtering)
+Useful blocking should not stop at a premium upgrade prompt. Touchgrass gives you category
+filtering, custom rules, and policy management in one MIT-licensed project you can run yourself.
 
-Clone a copy you have access to and install the pinned pnpm version if needed:
+You control the configuration and Cloudflare account. The source is available to repository
+readers, and the license allows them to reuse and modify it. While this repository is private,
+cloning it requires GitHub access.
+
+## Get started
+
+You need a Cloudflare account, Node.js **22.18 or later**, and pnpm **11.9.0**. No native app,
+App Store installation, or paid Apple Developer membership is needed.
+
+### Try the dashboard locally
+
+Replace `YOUR_REPOSITORY_URL` with the clone URL of a repository you can access:
 
 ```sh
 git clone YOUR_REPOSITORY_URL touchgrass
 cd touchgrass
 npm install --global pnpm@11.9.0
-```
-
-Replace `YOUR_REPOSITORY_URL` with your repository's clone URL. A private repository
-requires GitHub access; the MIT license permits reuse of copies you obtain.
-
-This runs a simulated Gateway whose state lives in the Durable Object. It does not contact
-Cloudflare and does not change DNS on any device.
-
-```sh
 pnpm install --frozen-lockfile
 pnpm run dev:local
 ```
 
-Then open <http://127.0.0.1:8787>. Local mode accepts loopback requests only, uses
-`ENVIRONMENT=local` with local authentication, and reports `gatewayMode: "simulated"` so
-simulated state is never mistaken for live management read-back. Local mode uses real time,
-so cooldowns behave exactly as they will in production; there is no dashboard control to
-skip them.
+Open **http://127.0.0.1:8787**. This preview simulates Gateway and does not block websites,
+change device DNS, or modify your Cloudflare account. Cooldowns use real time in the preview.
 
-Useful checks against the running server:
+### Enable real blocking
 
-```sh
-curl -s http://127.0.0.1:8787/api/v1/status
-curl -s http://127.0.0.1:8787/api/v1/diagnostics
-curl -s http://127.0.0.1:8787/api/v1/policy
+Follow the [complete setup guide](docs/setup.md). It walks you through:
+
+1. Creating a Cloudflare Gateway DNS location and copying its encrypted DNS endpoint.
+2. Configuring your own Worker and an administrator-only Cloudflare Access login.
+3. Storing the Gateway management token as a Worker secret.
+4. Deploying the dashboard and confirming your policy has synchronized.
+5. Generating and installing the DNS profile on each device.
+6. Checking allowed sites and blocked domains in normal and private browsing.
+
+The tracked configuration is a blank template. Your account values belong in an ignored
+production configuration, and credentials stay in Worker secrets.
+
+## Architecture: how blocking works
+
+Touchgrass has two jobs: managing your policy and routing device DNS to the service that
+enforces it.
+
+```mermaid
+flowchart TB
+    subgraph Family["Your devices or family devices"]
+        Browsers["Safari · Chrome · Helium"]
+        Profile["Installed Apple DNS profile"]
+        Browsers --> Profile
+    end
+
+    subgraph Filtering["DNS filtering path"]
+        Gateway["Cloudflare Gateway"]
+        Rules["Adult category + custom domain rules"]
+        Decision{"Domain allowed?"}
+        Allowed["Return DNS answer"]
+        Blocked["Block DNS resolution"]
+        Gateway --> Rules --> Decision
+        Decision -->|Yes| Allowed
+        Decision -->|No| Blocked
+    end
+
+    subgraph Management["Private policy management"]
+        Admin["You or the family administrator"]
+        Access["Cloudflare Access login"]
+        Dashboard["Touchgrass dashboard"]
+        API["Cloudflare Worker · Hono API"]
+        State["Durable Object · SQLite<br/>Policy, cooldowns, sync state"]
+        Admin --> Access --> Dashboard --> API --> State
+    end
+
+    Profile -->|Encrypted DNS over HTTPS| Gateway
+    State -->|Reconcile policy using Gateway API| Rules
+
+    classDef grass fill:#dcfce7,stroke:#15803d,color:#14532d
+    classDef blocked fill:#fee2e2,stroke:#b91c1c,color:#7f1d1d
+    class Profile,Gateway,Rules,Allowed,Dashboard,State grass
+    class Blocked blocked
 ```
 
-For dashboard work, run `pnpm run dev:web` in a second shell; it rebuilds `dist/web` and the
-running server serves the new assets within seconds without a restart.
+DNS requests go directly to Gateway. The Touchgrass Worker serves the dashboard and manages
+rules; it does not proxy your web traffic. Cloudflare supports location-based DNS filtering
+without installing its device client. [Cloudflare's DoH documentation](https://developers.cloudflare.com/cloudflare-one/networks/resolvers-and-proxies/dns/dns-over-https/).
 
-Local overrides go in `.dev.vars` (git-ignored). See `.dev.vars.example`. Nothing in local
-mode needs a real Cloudflare token.
+One deployment has one administrator, one shared policy, and one Gateway location. Use a
+separate Cloudflare account for each independent deployment: the current Gateway ownership
+namespace is account-wide, so separate Touchgrass instances cannot safely share an account.
+Multiple devices using the same deployment are supported by the shared-profile design.
 
-## Behaviour
+## Devices and browsers
 
-- **Rules.** Each rule is a hostname plus a `block` or `allow` action and a scope. A `host`
-  scope matches exactly that name; a `domain` scope matches the name and its subdomains.
-  One hostname and scope can carry only one action.
-- **Category.** The `pornography` category maps to a Gateway content category and is
-  compiled into a single category rule.
-- **Cooldowns.** Changes are classified as stronger (more restrictive), weaker or unchanged.
-  Stronger and unchanged changes apply immediately. A **weaker** change is recorded as a
-  pending proposal and only becomes confirmable after the cooldown elapses (default 24
-  hours, configurable up to 7 days). A pending proposal expires 7 days after it becomes
-  eligible. A restore is classified the same way and cannot bypass a cooldown.
-- **Suppressed allows.** An allow that is already covered by a broader block is suppressed
-  and reported in diagnostics rather than compiled into a contradictory rule.
-- **Subdomains.** A `domain` rule such as `example.org` matches `example.org` and any
-  subdomain; the Gateway expression uses a domain-list match, not a wildcard.
+The current setup targets **iPhone and Mac** using an installed Apple DNS profile.
 
-## Production setup
+| Device | Reference checks |
+| --- | --- |
+| Mac | Safari, Chrome, and Helium: allowed and blocked navigation checked directly in regular and private modes. |
+| iPhone | Safari and Chrome: the owner reported blocking in normal/private modes, ordinary browsing, Wi-Fi/cellular operation, and persistence after restart. |
 
-Deployment is manual and owner-driven. At a high level:
+An installed profile normally survives a restart. A new browser, OS version, network, VPN,
+or DNS override still needs its own check. A green dashboard confirms policy synchronization;
+[device tests](docs/setup.md#step-14-test-devices-and-browsers) confirm the actual browsing path.
 
-1. Create a Gateway DNS location and note its location-specific DoH endpoint.
-2. Create a scoped Gateway management token and log in to Wrangler with OAuth.
-3. Fill a private, git-ignored config and deploy once (the first deploy fails closed).
-4. Enable owner-only Cloudflare Access for that Worker; record the team domain and AUD.
-5. Store the token as a Worker secret, redeploy, sign in and confirm the policy syncs.
-6. Generate the `.mobileconfig` profile into `generated/` and install it on each device.
+## Free software, your infrastructure
 
-The full walkthrough, including exact commands and verification, is in
-[`docs/setup.md`](docs/setup.md). Day-two behaviour, failure modes and recovery are in
-[`docs/operations.md`](docs/operations.md).
+Touchgrass has no paid software tier and charges no fee for extra devices or custom rules.
+It can be deployed using Cloudflare's Free services within their allowances.
 
-## Verification
+Cloudflare sets the infrastructure limits. Workers requests, Durable Object usage/storage,
+and Gateway account limits are not unlimited. DNS queries go to Gateway rather than counting
+as individual Touchgrass dashboard requests. Check the current
+[Workers pricing](https://developers.cloudflare.com/workers/platform/pricing/) and
+[Cloudflare One account limits](https://developers.cloudflare.com/cloudflare-one/account-limits/)
+before deploying. Touchgrass never upgrades a plan or purchases an add-on for you.
+
+The application currently supports up to **1,000 custom policy rules**. Actual capacity also
+depends on Cloudflare's policy and expression limits. The absence of a paywall does not mean
+unbounded rules or guaranteed coverage of every adult domain.
+
+## Know the boundaries
+
+- **It filters domains.** It cannot distinguish an adult post from another post on Reddit,
+  X, or any other shared website. It also does not add broader child-safety categories or
+  SafeSearch enforcement automatically.
+- **Category coverage is imperfect.** Newly created or unclassified adult domains may need
+  a custom block. A few successful tests do not prove universal coverage.
+- **The profile is removable.** A device user can remove it or choose another resolver.
+  VPNs, browser-specific secure DNS, and iCloud Private Relay can change routing. Cooldowns
+  govern dashboard changes, not device settings or direct Cloudflare account edits.
+- **Cloudflare is the DNS provider.** DNS transport is encrypted, but Cloudflare can see
+  queried domain names and may log them according to your account settings. Self-hosting
+  the dashboard does not make DNS queries invisible to the provider.
+
+Touchgrass helps establish a shared adult-site blocking baseline. It does not guarantee a
+completely child-safe internet or tamper-proof parental controls.
+
+## Manage and recover
+
+Use the dashboard to add rules, review pending changes, and export backups. Weakening changes
+require confirmation after the configured cooldown, which defaults to **24 hours** and can be
+set from **0 to 7 days**. Restoring a backup cannot bypass it.
+
+If blocking stops, check the device profile and resolver path before changing the backend.
+If policy synchronization fails, use Diagnostics to inspect the error and owned rules.
+The [operations guide](docs/operations.md) covers both, along with token rotation, precedence
+conflicts, privacy, and upgrades.
+
+## Development
+
+Built with **TypeScript, Effect, Hono, React, Vite, Cloudflare Workers, and a SQLite-backed
+Durable Object**.
 
 ```sh
 pnpm install --frozen-lockfile
 pnpm run verify
 ```
 
-`verify` runs, in order: `wrangler types`, type checking for the node, Worker and web
-projects, the source-rule check, the domain and profile tests, the dashboard tests, the
-Vite build, the Worker runtime tests (local, production-boundary and unconfigured) and a
-`wrangler deploy --dry-run` bundle check. `build:web` must run before `test:worker` or
-`bundle:worker`, because the asset binding points at `dist/web`; `verify` already orders
-this.
+Verification checks strict TypeScript and source rules, runs domain/profile/dashboard/Worker
+runtime tests, builds the dashboard, and dry-runs the Worker bundle. GitHub Actions runs the
+same pipeline without deployment credentials. Passing it verifies the code, not your device's
+DNS configuration.
 
-Wrangler commands that read or authenticate use `--env-file=/dev/null` so a local `.env`
-holding a deploy credential cannot silently replace the intended one.
+For dashboard development, run `pnpm run dev:web` alongside `pnpm run dev:local`.
 
-## Device evidence versus promises
+| Directory | Contents |
+| --- | --- |
+| `src/domain/` | Policy, hostname validation, cooldown classification, and rule compilation |
+| `src/contracts/` | Shared Effect Schema API contracts |
+| `src/worker/` | Authentication, API, Durable Object storage, and Gateway reconciliation |
+| `src/web/` | Dashboard |
+| `src/dns-profile/` | Apple DNS profile generation |
+| `tests/` | Domain, profile, dashboard, and Worker runtime tests |
+| `docs/` | Setup and operations guides |
 
-Local tests cover policy, compilation, cooldowns, the Durable Object and HTTP boundaries in
-the real Workers runtime. They do **not** prove that any browser uses the DNS endpoint.
-
-- On the reference deployment, macOS browsers were directly observed passing an allowed
-  control and rejecting custom and category probes (reserved test hostnames), in regular and
-  private windows.
-- iPhone blocking was self-reported by the owner, with ordinary sites loading and blocking
-  persisting across Wi-Fi, cellular and a restart.
-- New browsers, other networks and lifecycle events remain unverified until tested.
-
-A successful policy sync means Gateway has your rules; it is not proof that a device is
-filtered. Treat device and browser checks as a separate acceptance step you perform
-yourself. See [`docs/setup.md`](docs/setup.md) for the test matrix.
-
-## Cost and free tier
-
-- The Workers Free plan includes 100,000 requests per day and Durable Objects with SQLite
-  storage. This project fits comfortably in that for personal use, but exact limits and
-  what is billable change over time.
-- SQLite-backed Durable Object storage billing began in January 2026; the Free plan includes
-  a daily read allowance and a small stored-data allowance. Check the current numbers before
-  relying on them.
-- The Workers Paid plan starts at $5 USD per month and is not required by this project.
-- The service never upgrades your plan or makes purchases on your behalf.
-
-Always confirm current limits against the source of truth:
-[Workers pricing](https://developers.cloudflare.com/workers/platform/pricing/).
-
-## Limits
-
-- **Cooperative, not tamper-proof.** The profile is removable in device settings and the
-  Cloudflare account is yours. This is self-control software, not enforcement against a
-  determined user.
-- **DNS sees names, not content.** It can block an entire domain, but it cannot filter
-  content *within* a domain such as a particular subreddit or an account on a social site.
-  Site-internal content needs the provider's own controls.
-- **Bypass paths exist.** A browser configured with its own secure DNS provider, a VPN, or
-  iCloud Private Relay can avoid the system resolver. Category coverage is not exhaustive
-  and cannot be claimed as universal.
-- **The DoH endpoint is not a secret.** It identifies a location, not a credential. Anyone
-  who knows it can send queries to that location, so keep the dashboard itself behind
-  Access.
-- **No native app.** Distribution is a manual profile install, not an App Store app.
-
-## Layout
-
-```text
-src/domain/       pure policy, hostname, operation and compiler logic
-src/contracts/    Effect Schema HTTP contracts shared with the dashboard
-src/worker/       Worker, Durable Object, store, Gateway adapters, auth, reconciler
-src/web/          React dashboard source
-web/index.html    dashboard HTML entry point for Vite
-scripts/          DNS profile generator and source-rule check
-tests/            node tests, Worker runtime tests, dashboard tests
-docs/             setup and operations guides
-.github/          credential-free CI
-```
-
-## Contributing and source rules
-
-This project enforces its TypeScript rules mechanically through `pnpm run verify` and
-`src/quality/source-rules.ts`: no comments in source, no `any`, no type assertions, no
-non-null assertions and no suppression directives. Strict TypeScript options such as
-`noUncheckedIndexedAccess` and `exactOptionalPropertyTypes` are on. Decode external input
-from `unknown` at boundaries with Effect Schema and model expected failures as typed Effect
-errors. Tests must cover behavioural boundaries and failure cases.
-
-If you change structure, run `pnpm run verify` before proposing a change. Operational
-procedures live in [`docs/operations.md`](docs/operations.md).
+Contributions must preserve strict types, decode external input from `unknown`, and add no
+source comments, `any`, unchecked assertions, or suppression directives. See [AGENTS.md](AGENTS.md)
+for the project conventions. Keep credentials and local account settings out of commits.
 
 ## License
 
-MIT. See [`LICENSE`](LICENSE).
+[MIT](LICENSE). Free to use, modify, and distribute under the license terms.

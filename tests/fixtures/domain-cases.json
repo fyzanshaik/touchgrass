@@ -1,0 +1,104 @@
+{
+  "normalization": [
+    {
+      "input": "EXAMPLE.ORG.",
+      "kind": "domain",
+      "canonical": "example.org"
+    },
+    {
+      "input": "https://www.example.org/path?q=test",
+      "kind": "url",
+      "canonical": "www.example.org",
+      "note": "UI warns that path/query are not stored"
+    },
+    {
+      "input": "b\u00fccher.example",
+      "kind": "domain",
+      "canonical": "xn--bcher-kva.example"
+    },
+    {
+      "input": "*.example.org",
+      "kind": "domain",
+      "reject": "wildcard syntax unsupported"
+    },
+    {
+      "input": "org",
+      "kind": "domain",
+      "reject": "public suffix"
+    },
+    {
+      "input": "co.uk",
+      "kind": "domain",
+      "reject": "public suffix"
+    },
+    {
+      "input": "https://user:password@example.org/",
+      "kind": "url",
+      "reject": "credentials"
+    },
+    {
+      "input": "127.0.0.1",
+      "kind": "domain",
+      "reject": "IP literal"
+    },
+    {
+      "input": "https://[::1]/",
+      "kind": "url",
+      "reject": "IP literal"
+    },
+    {
+      "input": "example.org/path",
+      "kind": "domain",
+      "reject": "path in domain entry"
+    },
+    {
+      "input": "javascript:alert(1)",
+      "kind": "url",
+      "reject": "unsupported scheme"
+    }
+  ],
+  "matching": [
+    {
+      "rule": "example.org",
+      "scope": "domain",
+      "query": "example.org",
+      "matches": true
+    },
+    {
+      "rule": "example.org",
+      "scope": "domain",
+      "query": "a.example.org",
+      "matches": true
+    },
+    {
+      "rule": "example.org",
+      "scope": "domain",
+      "query": "example.com",
+      "matches": false
+    },
+    {
+      "rule": "example.org",
+      "scope": "domain",
+      "query": "safe-example.org",
+      "matches": false
+    },
+    {
+      "rule": "example.org",
+      "scope": "domain",
+      "query": "example.org.evil.test",
+      "matches": false
+    },
+    {
+      "rule": "example.org",
+      "scope": "host",
+      "query": "www.example.org",
+      "matches": false
+    },
+    {
+      "rule": "www.example.org",
+      "scope": "host",
+      "query": "www.example.org",
+      "matches": true
+    }
+  ]
+}

@@ -1,0 +1,44 @@
+{
+  "name": "touchgrass",
+  "version": "0.0.0",
+  "private": true,
+  "license": "MIT",
+  "type": "module",
+  "packageManager": "pnpm@11.9.0",
+  "engines": {
+    "node": ">=22.18.0"
+  },
+  "scripts": {
+    "types:worker": "node -e \"require('node:fs').mkdirSync('generated',{recursive:true})\" && wrangler types generated/worker-configuration.d.ts --env-file=/dev/null",
+    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.worker.json && tsc --noEmit -p tsconfig.web.json",
+    "check:source": "node scripts/check-source-rules.ts",
+    "generate:dns-profile": "node scripts/generate-dns-profile.ts",
+    "build:web": "vite build",
+    "dev:web": "vite build --watch",
+    "dev:local": "pnpm run build:web && wrangler dev --ip 127.0.0.1 --port 8787 --var ENVIRONMENT:local --var GATEWAY_MODE:simulated --var LOCAL_AUTH_ENABLED:true --var LOCAL_AUTH_EMAIL:owner@example.com --var GATEWAY_DOH_ENDPOINT:https://local.cloudflare-gateway.com/dns-query",
+    "test": "node --test tests/*.test.ts",
+    "test:web": "node --test tests/web/*.test.ts",
+    "test:worker": "vitest run && vitest run --config vitest.production.config.ts && vitest run --config vitest.unconfigured.config.ts",
+    "bundle:worker": "wrangler deploy --dry-run --outdir dist/bundle --env-file=/dev/null",
+    "verify": "pnpm run types:worker && pnpm run typecheck && pnpm run check:source && pnpm test && pnpm run test:web && pnpm run build:web && pnpm run test:worker && pnpm run bundle:worker"
+  },
+  "dependencies": {
+    "effect": "3.22.2",
+    "hono": "4.13.10",
+    "jose": "6.2.12",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "tldts": "7.4.16"
+  },
+  "devDependencies": {
+    "@cloudflare/vitest-plugin": "1.3.1",
+    "@types/node": "22.20.4",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@vitejs/plugin-react": "6.1.1",
+    "typescript": "6.0.3",
+    "vite": "8.3.1",
+    "vitest": "4.1.11",
+    "wrangler": "4.143.0"
+  }
+}

@@ -1,0 +1,42 @@
+{
+  "name": "touchgrass",
+  "main": "src/worker/index.ts",
+  "compatibility_date": "2026-09-30",
+  "workers_dev": true,
+  "preview_urls": false,
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1
+  },
+  "assets": {
+    "directory": "./dist/web",
+    "binding": "ASSETS",
+    "run_worker_first": true
+  },
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "ACCOUNT",
+        "class_name": "AccountDurableObject"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": ["AccountDurableObject"]
+    }
+  ],
+  "vars": {
+    "ENVIRONMENT": "production",
+    "GATEWAY_MODE": "live",
+    "GATEWAY_PRECEDENCE_BASE": "1000",
+    "GATEWAY_DOH_ENDPOINT": "",
+    "CLOUDFLARE_ACCOUNT_ID": "",
+    "ACCESS_TEAM_DOMAIN": "",
+    "ACCESS_AUD": "",
+    "OWNER_EMAIL": "",
+    "LOCAL_AUTH_ENABLED": "false",
+    "LOCAL_AUTH_EMAIL": ""
+  }
+}
